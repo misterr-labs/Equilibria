@@ -30,6 +30,7 @@
 
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/uuid/nil_generator.hpp>
+#include <boost/filesystem.hpp>
 #include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
@@ -38,6 +39,7 @@ using namespace epee;
 #include "common/command_line.h"
 #include "common/updates.h"
 #include "common/download.h"
+#include "common/equilibria.h"
 #include "common/util.h"
 #include "common/perf_timer.h"
 #include "int-util.h"
@@ -1394,7 +1396,7 @@ namespace cryptonote
     const bool restricted = m_restricted && ctx;
 
     tx_verification_context tvc{};
-    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verification_failed)
     {
       res.status = "Failed";
       std::string reason = "";
@@ -1418,7 +1420,7 @@ namespace cryptonote
 
 
       const std::string punctuation = reason.empty() ? "" : ": ";
-      if (tvc.m_verifivation_failed)
+      if (tvc.m_verification_failed)
       {
         LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << reason);
       }
@@ -3799,7 +3801,7 @@ namespace cryptonote
             for (size_t i = 0; i < tx.vout.size(); i++)
             {
               uint64_t unlock_time = tx.unlock_time;
-              if (tx.version >= cryptonote::transaction::version_3_per_output_unlock_times)
+              if (tx.version >= txversion::v3)
                 unlock_time = tx.output_unlock_times[i];
               if(unlock_time != 0)
                 transferred += service_nodes::get_reg_tx_staking_output_contribution(tx, i, derivation, hwdev);
