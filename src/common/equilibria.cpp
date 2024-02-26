@@ -489,7 +489,7 @@ static const char zbase32_alpha[] = {'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
                                      'a', '3', '4', '5', 'h', '7', '6', '9'};
 
 /// adapted from i2pd
-template <typename v, typename stack_t>
+template <typename stack_t>
 const char* base32z_encode(const std::vector<uint8_t>& value, stack_t &stack)
 {
 	size_t ret = 0, pos = 1;
@@ -497,6 +497,7 @@ const char* base32z_encode(const std::vector<uint8_t>& value, stack_t &stack)
 	size_t len = value.size();
 	while (ret < sizeof(stack) && (bits > 0 || pos < len))
 	{
+
 		if (bits < 5)
 		{
 			if (pos < len)
@@ -526,6 +527,16 @@ const char* base32z_encode(const std::vector<uint8_t>& value, stack_t &stack)
 	return &stack[0];
 }
 
+constexpr uint8_t hex_to_nibble(const char & ch)
+{
+  return ( ch >= '0' && ch <= '9') ? ch - 48 : ((ch >= 'A' && ch <= 'F' ) ? ch - 55 : ((ch >= 'a' && ch <= 'f' ) ? ch - 87 : 0));
+}
+
+constexpr uint8_t hexpair_to_byte(const char & hi, const char & lo)
+{
+  return hex_to_nibble(hi) << 4 | hex_to_nibble(lo);
+}
+
 std::string equilibria::hex64_to_base32z(const std::string &src)
 {
 	assert(src.size() <= 64); // NOTE: Developer error, update function if you need more. This is intended for 64 char snode pubkeys
@@ -546,7 +557,7 @@ std::string equilibria::hex64_to_base32z(const std::string &src)
 	  }
 	}
 	// encode to base32z
-	char buf[64] = {};
+	char buf[64] = {0};
 	std::string result;
 	if (char const *dest = base32z_encode(bin, buf))
 		result = dest;
