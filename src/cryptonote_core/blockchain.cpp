@@ -3671,7 +3671,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
 		if (!service_nodes::deregister_vote::verify_deregister(nettype(), deregister, tvc.m_vote_ctx, *quorum_state))
 		{
-			tvc.m_verifivation_failed = true;
+			tvc.m_verification_failed = true;
 			MERROR_VER("tx " << get_transaction_hash(tx) << ": version 3 deregister_tx could not be completely verified reason: " << print_vote_verification_context(tvc.m_vote_ctx));
 			return false;
 		}
@@ -3688,7 +3688,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				<< ", is newer than current height: " << curr_height
 				<< " blocks and has been rejected.");
 			tvc.m_vote_ctx.m_invalid_block_height = true;
-			tvc.m_verifivation_failed = true;
+			tvc.m_verification_failed = true;
 			return false;
 		}
 
@@ -3700,7 +3700,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				<< ", is older than: " << deregister_lifetime
 				<< " blocks and has been rejected. The current height is: " << curr_height);
 			tvc.m_vote_ctx.m_invalid_block_height = true;
-			tvc.m_verifivation_failed = true;
+			tvc.m_verification_failed = true;
 			return false;
 		}
 	}
