@@ -1359,7 +1359,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool calculate_transaction_prunable_hash(const transaction& t, const cryptonote::blobdata *blob, crypto::hash& res)
   {
-    if (t.version == 1)
+    if (t.version == txversion::v1)
       return false;
     const unsigned int unprunable_size = t.unprunable_size;
     if (blob && unprunable_size)
