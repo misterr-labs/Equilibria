@@ -30,6 +30,8 @@
 
 #include <boost/utility/value_init.hpp>
 #include <boost/shared_ptr.hpp>
+#include <limits>
+#include <functional>
 #include <vector>
 namespace epee
 {
@@ -37,6 +39,14 @@ namespace epee
 
 namespace misc_utils
 {
+  template<typename t_iterator>
+  t_iterator move_it_backward(t_iterator it, size_t count)
+  {
+    while(count--)
+      it--;
+    return it;
+  }  
+
   bool sleep_no_w(long ms);
 
   template <typename T>

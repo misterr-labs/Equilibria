@@ -48,8 +48,7 @@ message(STATUS "CMake version ${CMAKE_VERSION}")
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "macOS deployment target (Apple clang only)")
 
-project(equilibria
-  LANGUAGES CXX C)
+project(equilibria)
 
 set(CMAKE_FIND_FRAMEWORK "LAST")
 
@@ -69,8 +68,6 @@ endif()
 enable_language(C ASM)
 
 include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
-
-enable_language(C ASM)
 
 function (die msg)
   if (NOT WIN32)
