@@ -33,8 +33,6 @@ add_library(epee STATIC byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     int-util.cpp portable_storage.cpp
     misc_language.cpp
     file_io_utils.cpp
-    net_parse_helpers.cpp
-    http_base.cpp
     )
 
 if(TARGET readline)
