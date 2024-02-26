@@ -28,6 +28,7 @@
 
 #include "portable_storage_base.h"
 #include "portable_storage_to_bin.h"
+#include "portable_storage_val_converters.h"
 #include "misc_log_ex.h"
 #include "span.h"
 #include "int-util.h"
