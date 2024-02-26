@@ -880,14 +880,12 @@ namespace cryptonote
     }
     bad_semantics_txes_lock.unlock();
 
-    uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    unsigned int max_tx_version = (version == 1) ? 1 : (version < 5)
-      ? transaction::version_2
-      : transaction::version_3_per_output_unlock_times;
-    if (tx.version == 0 || tx.version > max_tx_version)
+    uint8_t hf_version = m_blockchain_storage.get_current_hard_fork_version();
+    txversion max_version = transaction::get_max_version_for_hf(hf_version);
+    if (tx.version == txversion::v0 || tx.version > max_version)
     {
       // v3 is the latest one we know
-      MERROR_VER("Bad tx version (" << tx.version << ", max is " << max_tx_version << ")");
+      MERROR_VER("Bad tx version (" << tx.version << ", max is " << max_version << ")");
       tvc.m_verification_failed = true;
       return false;
     }
@@ -1558,7 +1556,7 @@ namespace cryptonote
     m_miner.resume();
 
 
-    CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "mined block failed verification");
+    CHECK_AND_ASSERT_MES(!bvc.m_verification_failed, false, "mined block failed verification");
     if(bvc.m_added_to_main_chain)
     {
       cryptonote_connection_context exclude_context = {};
