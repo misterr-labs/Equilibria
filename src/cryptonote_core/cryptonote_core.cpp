@@ -42,6 +42,7 @@ using namespace epee;
 #include "common/download.h"
 #include "common/threadpool.h"
 #include "common/command_line.h"
+#include "common/equilibria.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
@@ -57,6 +58,8 @@ using namespace epee;
 #include "version.h"
 #include "wipeable_string.h"
 #include "common/i18n.h"
+
+#include <boost/filesystem.hpp>
 
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "cn"
@@ -577,8 +580,12 @@ namespace cryptonote
         else if(options[0] == "fastest")
         {
           db_flags = DBF_FASTEST;
+#ifdef _WIN32
           sync_threshold = 1000; // default to fastest:async:1000
-          sync_mode = db_sync_mode_is_default ? db_defaultsync : db_async;
+#else
+          sync_threshold = 100000; // default to fastest:async:100000
+#endif
+	  sync_mode = db_sync_mode_is_default ? db_defaultsync : db_async;
         }
         else
           db_flags = DEFAULT_FLAGS;
@@ -829,7 +836,7 @@ namespace cryptonote
     if(tx_blob.blob.size() > get_max_tx_size())
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, too big size " << tx_blob.blob.size() << ", rejected");
-      tvc.m_verifivation_failed = true;
+      tvc.m_verification_failed = true;
       tvc.m_too_big = true;
       return false;
     }
@@ -855,7 +862,7 @@ namespace cryptonote
     if (!r)
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to parse, rejected");
-      tvc.m_verifivation_failed = true;
+      tvc.m_verification_failed = true;
       return false;
     }
     //std::cout << "!"<< tx.vin.size() << std::endl;
@@ -867,7 +874,7 @@ namespace cryptonote
       {
         bad_semantics_txes_lock.unlock();
         LOG_PRINT_L1("Transaction already seen with bad semantics, rejected");
-        tvc.m_verifivation_failed = true;
+        tvc.m_verification_failed = true;
         return false;
       }
     }
@@ -881,7 +888,7 @@ namespace cryptonote
     {
       // v3 is the latest one we know
       MERROR_VER("Bad tx version (" << tx.version << ", max is " << max_tx_version << ")");
-      tvc.m_verifivation_failed = true;
+      tvc.m_verification_failed = true;
       return false;
     }
 
@@ -893,7 +900,7 @@ namespace cryptonote
     if(!check_tx_syntax(tx))
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, Failed to check tx " << tx_hash << " syntax, rejected");
-      tvc.m_verifivation_failed = true;
+      tvc.m_verification_failed = true;
       return false;
     }
 
@@ -938,12 +945,12 @@ namespace cryptonote
       if (!check_tx_semantic(*tx_info[n].tx, keeped_by_block))
       {
         set_semantics_failed(tx_info[n].tx_hash);
-        tx_info[n].tvc.m_verifivation_failed = true;
+        tx_info[n].tvc.m_verification_failed = true;
         tx_info[n].result = false;
         continue;
       }
 
-	  if (tx_info[n].tx->version < 2 || tx_info[n].tx->is_deregister_tx())
+	  if (tx_info[n].tx->version < txversion::v2 || tx_info[n].tx->is_deregister_tx())
 		  continue;
       const rct::rctSig &rv = tx_info[n].tx->rct_signatures;
       switch (rv.type) {
@@ -951,7 +958,7 @@ namespace cryptonote
           // coinbase should not come here, so we reject for all other types
           MERROR_VER("Unexpected Null rctSig type");
           set_semantics_failed(tx_info[n].tx_hash);
-          tx_info[n].tvc.m_verifivation_failed = true;
+          tx_info[n].tvc.m_verification_failed = true;
           tx_info[n].result = false;
           break;
         case rct::RCTTypeSimple:
@@ -959,7 +966,7 @@ namespace cryptonote
           {
             MERROR_VER("rct signature semantics check failed");
             set_semantics_failed(tx_info[n].tx_hash);
-            tx_info[n].tvc.m_verifivation_failed = true;
+            tx_info[n].tvc.m_verification_failed = true;
             tx_info[n].result = false;
             break;
           }
@@ -969,7 +976,7 @@ namespace cryptonote
           {
             MERROR_VER("rct signature semantics check failed");
             set_semantics_failed(tx_info[n].tx_hash);
-            tx_info[n].tvc.m_verifivation_failed = true;
+            tx_info[n].tvc.m_verification_failed = true;
             tx_info[n].result = false;
             break;
           }
@@ -980,7 +987,7 @@ namespace cryptonote
           {
             MERROR_VER("Bulletproof does not have canonical form");
             set_semantics_failed(tx_info[n].tx_hash);
-            tx_info[n].tvc.m_verifivation_failed = true;
+            tx_info[n].tvc.m_verification_failed = true;
             tx_info[n].result = false;
             break;
           }
@@ -989,7 +996,7 @@ namespace cryptonote
         default:
           MERROR_VER("Unknown rct type: " << rv.type);
           set_semantics_failed(tx_info[n].tx_hash);
-          tx_info[n].tvc.m_verifivation_failed = true;
+          tx_info[n].tvc.m_verification_failed = true;
           tx_info[n].result = false;
           break;
       }
@@ -1008,7 +1015,7 @@ namespace cryptonote
         if (assumed_bad || !rct::verRctSemanticsSimple(tx_info[n].tx->rct_signatures))
         {
           set_semantics_failed(tx_info[n].tx_hash);
-          tx_info[n].tvc.m_verifivation_failed = true;
+          tx_info[n].tvc.m_verification_failed = true;
           tx_info[n].result = false;
         }
       }
@@ -1044,7 +1051,7 @@ namespace cryptonote
         catch (const std::exception &e)
         {
           MERROR_VER("Exception in handle_incoming_tx_pre: " << e.what());
-          tvc[i].m_verifivation_failed = true;
+          tvc[i].m_verification_failed = true;
           results[i].res = false;
         }
       });
@@ -1075,7 +1082,7 @@ namespace cryptonote
           catch (const std::exception &e)
           {
             MERROR_VER("Exception in handle_incoming_tx_post: " << e.what());
-            tvc[i].m_verifivation_failed = true;
+            tvc[i].m_verification_failed = true;
             results[i].res = false;
           }
         });
@@ -1108,9 +1115,9 @@ namespace cryptonote
 
       const uint64_t weight = results[i].tx.pruned ? get_pruned_transaction_weight(results[i].tx) : get_transaction_weight(results[i].tx, it->blob.size());
       ok &= add_new_tx(results[i].tx, results[i].hash, tx_blobs[i].blob, weight, tvc[i], tx_relay, relayed);
-      if(tvc[i].m_verifivation_failed)
+      if(tvc[i].m_verification_failed)
       {MERROR_VER("Transaction verification failed: " << results[i].hash);}
-      else if(tvc[i].m_verifivation_impossible)
+      else if(tvc[i].m_verification_impossible)
       {MERROR_VER("Transaction verification impossible: " << results[i].hash);}
 
       if(tvc[i].m_added_to_pool)
@@ -1153,7 +1160,7 @@ namespace cryptonote
       MERROR_VER("tx with invalid outputs, rejected for tx id= " << get_transaction_hash(tx));
       return false;
     }
-	if (tx.version >= transaction::version_2)
+	if (tx.version >= txversion::v2)
 	{
       if (tx.rct_signatures.outPk.size() != tx.vout.size())
       {
@@ -1168,7 +1175,7 @@ namespace cryptonote
       return false;
     }
 
-    if (tx.version == transaction::version_1)
+    if (tx.version == txversion::v1)
     {
       uint64_t amount_in = 0;
       get_inputs_money_amount(tx, amount_in);
