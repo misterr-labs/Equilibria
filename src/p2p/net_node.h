@@ -242,6 +242,7 @@ namespace nodetool
       : m_payload_handler(payload_handler),
         m_external_port(0),
         m_rpc_port(0),
+        m_rpc_credits_per_hash(0),
         m_allow_local_ip(false),
         m_hide_my_port(false),
         m_igd(no_igd),
@@ -290,8 +291,16 @@ namespace nodetool
     virtual void clear_used_stripe_peers();
 
   private:
+
     const std::vector<std::string> m_seed_nodes_list =
-    {
+    { "154.38.165.93"
+    , "38.242.135.157"
+    , "213.155.160.222"
+    , "194.233.64.43"
+    , "207.244.249.105"
+    , "161.97.102.172"
+    , "62.171.181.142"
+    , "144.91.88.92" // Contabo (seed node of ArqTras?)
     };
 
     bool islimitup=false;
@@ -426,6 +435,11 @@ namespace nodetool
       m_rpc_port = rpc_port;
     }
 
+    void set_rpc_credits_per_hash(uint32_t rpc_credits_per_hash)
+    {
+      m_rpc_credits_per_hash = rpc_credits_per_hash;
+    }
+
   private:
     std::string m_config_folder;
 
@@ -435,6 +449,7 @@ namespace nodetool
     uint32_t m_listening_port_ipv6;
     uint32_t m_external_port;
     uint16_t m_rpc_port;
+    uint32_t m_rpc_credits_per_hash;
     bool m_allow_local_ip;
     bool m_hide_my_port;
     igd_t m_igd;

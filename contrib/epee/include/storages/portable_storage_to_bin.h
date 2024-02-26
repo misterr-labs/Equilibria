@@ -48,7 +48,7 @@ namespace epee
       return sizeof(pack_value);
     }
 
-    template<class t_stream>
+      template<class t_stream>
     size_t pack_varint(t_stream& strm, size_t val)
     {   //the first two bits always reserved for size information
 
@@ -70,7 +70,7 @@ namespace epee
       }
     }
 
-    template<class t_stream>
+      template<class t_stream>
     bool put_string(t_stream& strm, const std::string& v)
     {
       pack_varint(strm, v.size());

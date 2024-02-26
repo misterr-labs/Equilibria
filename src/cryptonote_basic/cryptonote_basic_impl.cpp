@@ -46,6 +46,8 @@ using namespace epee;
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "cn"
 
+double triton_exp2(double);
+
 namespace cryptonote {
 
   struct integrated_address {
@@ -108,14 +110,14 @@ namespace cryptonote {
      static_assert(DIFFICULTY_TARGET_V2 % 60 == 0 && DIFFICULTY_TARGET_V1 % 60 == 0, "difficulty targets must be a multiple of 60");
      int target;
 
-     if(hard_fork_version < 6)
-     {
-       target = DIFFICULTY_TARGET_V2;
+      if(hard_fork_version < 6)
+      {
+        target = DIFFICULTY_TARGET_V2;
      }
      else if(hard_fork_version >= 6)
      {
-       target = DIFFICULTY_TARGET_V3;
-     }
+        target = DIFFICULTY_TARGET_V3;
+      }
 
 	   const int emission_speed_factor = get_emission_speed_factor(hard_fork_version);
 

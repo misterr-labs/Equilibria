@@ -33,6 +33,7 @@
 #include "cryptonote_basic_impl.h"
 #include "tx_extra.h"
 #include "account.h"
+#include "blobdatatype.h"
 #include "crypto/pow_hash/cn_slow_hash.hpp"
 #include "subaddress_index.h"
 #include "include_base_utils.h"
@@ -64,25 +65,14 @@ namespace cryptonote
   bool is_v1_tx(const blobdata& tx_blob);
 
   template<typename T>
-  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t skip_fields = 0)
+  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t index = 0)
   {
-    if (skip_fields >= tx_extra_fields.size())
+    auto it = std::find_if(tx_extra_fields.begin(), tx_extra_fields.end(), [&index](const tx_extra_field& f) { return typeid(T) == f.type() && !index--; });
+    if(tx_extra_fields.end() == it)
       return false;
 
-    for (tx_extra_field const &check_field : tx_extra_fields)
-    {
-      if (typeid(T) != check_field.type())
-        continue;
-
-      if (skip_fields == 0)
-      {
-        field = boost::get<T>(check_field);
-        return true;
-      }
-      skip_fields--;
-    }
-
-    return false;
+    field = boost::get<T>(*it);
+    return true;
   }
 
   bool parse_tx_extra(const std::vector<uint8_t>& tx_extra, std::vector<tx_extra_field>& tx_extra_fields);

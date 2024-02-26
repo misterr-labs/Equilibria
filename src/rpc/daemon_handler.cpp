@@ -216,7 +216,7 @@ namespace rpc
 
     auto& chain = m_core.get_blockchain_storage();
 
-    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, res.start_height, res.current_height, false))
+    if (!chain.find_blockchain_supplement(req.known_hashes, res.hashes, NULL, res.start_height, res.current_height, false))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Blockchain::find_blockchain_supplement() returned false";
@@ -363,11 +363,11 @@ namespace rpc
       return;
     }
 
-    tx_verification_context tvc{};
+    tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, (relay ? relay_method::local : relay_method::none), false) || tvc.m_verification_failed)
+    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (relay ? relay_method::local : relay_method::none), false) || tvc.m_verifivation_failed)
     {
-      if (tvc.m_verification_failed)
+      if (tvc.m_verifivation_failed)
       {
         MERROR("[SendRawTx]: tx verification failed");
       }

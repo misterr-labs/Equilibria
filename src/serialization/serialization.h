@@ -46,8 +46,6 @@
 #include <set>
 #include <unordered_set>
 #include <string>
-#include <ios>
-#include <boost/mpl/bool.hpp>
 #include <boost/type_traits/is_integral.hpp>
 #include <boost/type_traits/integral_constant.hpp>
 
@@ -220,7 +218,12 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro VALUE(f)
  * \brief the same as FIELD(f)
  */
-#define VALUE(f) FIELD(f)
+#define VALUE(f)					\
+  do {							\
+    ar.tag(#f);						\
+    bool r = ::do_serialize(ar, f);			\
+    if (!r || !ar.stream().good()) return false;	\
+  } while(0);
 
 /*! \macro FIELD_N(t,f)
  *
@@ -237,7 +240,12 @@ inline bool do_serialize(Archive &ar, bool &v)
  *
  * \brief tags the field with the variable name and then serializes it
  */
-#define FIELD(f) FIELD_N(#f, f)
+#define FIELD(f)					\
+  do {							\
+    ar.tag(#f);						\
+    bool r = ::do_serialize(ar, f);			\
+    if (!r || !ar.stream().good()) return false;	\
+  } while(0);
 
 /*! \macro FIELDS(f)
  *
@@ -252,7 +260,12 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro VARINT_FIELD(f)
  *  \brief tags and serializes the varint \a f
  */
-#define VARINT_FIELD(f) VARINT_FIELD_N(#f, f)
+#define VARINT_FIELD(f)				\
+  do {						\
+    ar.tag(#f);					\
+    ar.serialize_varint(f);			\
+    if (!ar.stream().good()) return false;	\
+  } while(0);
 
 /*! \macro VARINT_FIELD_N(t, f)
  *
@@ -335,11 +348,11 @@ namespace serialization {
     {
       bool result = false;
       if (s.good())
-      {
-        std::ios_base::iostate state = s.rdstate();
-        result = noeof || EOF == s.peek();
-        s.clear(state);
-      }
+	{
+	  std::ios_base::iostate state = s.rdstate();
+	  result = noeof || EOF == s.peek();
+	  s.clear(state);
+	}
       return result;
     }
   }

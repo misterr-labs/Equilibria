@@ -37,7 +37,7 @@ include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
 include(CheckLibraryExists)
 include(CheckFunctionExists)
-include(FindPython)
+include(FindPythonInterp)
 
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
@@ -46,9 +46,10 @@ endif()
 cmake_minimum_required(VERSION 3.18)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
-project(equilibria)
-
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "macOS deployment target (Apple clang only)")
+
+project(equilibria
+  LANGUAGES CXX C)
 
 set(CMAKE_FIND_FRAMEWORK "LAST")
 
@@ -68,6 +69,8 @@ endif()
 enable_language(C ASM)
 
 include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
+
+enable_language(C ASM)
 
 function (die msg)
   if (NOT WIN32)
@@ -611,7 +614,7 @@ else()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_FLAG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_FLAG}")
 
-  set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized -Wno-unused-but-set-variable -Wno-unused-function -Wno-unused-variable")
+  set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
   if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(ARM)
       set(WARNINGS "${WARNINGS} -Wno-error=inline-asm")
@@ -1115,7 +1118,7 @@ find_package(PythonInterp)
 find_program(iwyu_tool_path NAMES iwyu_tool.py iwyu_tool)
 if (iwyu_tool_path AND PYTHONINTERP_FOUND)
   add_custom_target(iwyu
-    COMMAND "${Python_EXECUTABLE}" "${iwyu_tool_path}" -p "${CMAKE_BINARY_DIR}" -- --no_fwd_decls
+    COMMAND "${PYTHON_EXECUTABLE}" "${iwyu_tool_path}" -p "${CMAKE_BINARY_DIR}" -- --no_fwd_decls
     COMMENT "Running include-what-you-use tool"
     VERBATIM
   )

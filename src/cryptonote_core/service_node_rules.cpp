@@ -61,17 +61,17 @@ namespace service_nodes
 
 	bool check_service_node_portions(const std::vector<uint64_t>& portions, const uint64_t min_portions)
 	{
-	  uint64_t portions_left = STAKING_PORTIONS;
+		uint64_t portions_left = STAKING_PORTIONS;
 
 	  for (const auto portion : portions)
 	  {
-	    const uint64_t min_portions = std::min(portions_left, min_portions);
+			const uint64_t min_portions = std::min(portions_left, min_portions);
 	    if (portion < min_portions || portion > portions_left)
 	      return false;
-	    portions_left -= portion;
-	  }
+			portions_left -= portion;
+		}
 
-	  return true;
+		return true;
 	}
 
 	uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)
@@ -122,7 +122,7 @@ namespace service_nodes
 		return get_portions_from_percent(cut_percent, portions);
 	}
 
-	uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
+  uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
   {
     uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
     uint64_t x;

@@ -28,28 +28,30 @@
 
 #pragma once
 
+#include <boost/utility/value_init.hpp>
 #include <boost/shared_ptr.hpp>
 #include <vector>
-
 namespace epee
 {
+#define AUTO_VAL_INIT(v)   boost::value_initialized<decltype(v)>()
+
 namespace misc_utils
 {
-    template<typename t_iterator>
-    t_iterator move_it_backward(t_iterator it, size_t count)
-    {
-      while(count--)
-        it--;
-      return it;
-    }
+  bool sleep_no_w(long ms);
 
-	bool sleep_no_w(long ms );
+  template <typename T>
+  T get_mid(const T &a, const T &b)
+  {
+    //returns the average of two numbers; overflow safe and works with at least all integral and floating point types
+    //(a+b)/2 = (a/2) + (b/2) + ((a - 2*(a/2)) + (b - 2*(b/2)))/2
+    return (a/2) + (b/2) + ((a - 2*(a/2)) + (b - 2*(b/2)))/2;
+  }
 
   template<class type_vec_type>
   type_vec_type median(std::vector<type_vec_type> &v)
   {
     if(v.empty())
-      return type_vec_type{};
+      return boost::value_initialized<type_vec_type>();
     if(v.size() == 1)
       return v[0];
 
@@ -61,7 +63,7 @@ namespace misc_utils
       return v[n];
     }else 
     {//2, 4, 6...
-      return (v[n-1] + v[n])/2;
+      return get_mid<type_vec_type>(v[n-1],v[n]);
     }
 
   }

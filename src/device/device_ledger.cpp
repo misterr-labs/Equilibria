@@ -259,7 +259,7 @@ namespace hw {
 
     static int device_id = 0;
 
-    #define PROTOCOL_VERSION                    2
+    #define PROTOCOL_VERSION                    3
 
     #define INS_NONE                            0x00
     #define INS_RESET                           0x02
@@ -296,6 +296,7 @@ namespace hw {
     #define INS_BLIND                           0x78
     #define INS_UNBLIND                         0x7A
     #define INS_GEN_TXOUT_KEYS                  0x7B
+    #define INS_PREFIX_HASH                     0x7D
     #define INS_VALIDATE                        0x7C
     #define INS_MLSAG                           0x7E
     #define INS_CLOSE_TX                        0x80
@@ -978,10 +979,10 @@ namespace hw {
         const crypto::secret_key b_x = hw::ledger::decrypt(b);
         crypto::secret_key r_x;
         rct::key aG_x;
-        log_hexbuffer("sc_secret_add: [[IN]]  a ", (char*)a_x.data, 32);
-        log_hexbuffer("sc_secret_add: [[IN]]  b ", (char*)b_x.data, 32);
+        log_hexbuffer("sc_secret_add: [[IN]]  a ", (char*)a_x.data, 32);       
+        log_hexbuffer("sc_secret_add: [[IN]]  b ", (char*)b_x.data, 32);       
         this->controle_device->sc_secret_add(r_x, a_x, b_x);
-        log_hexbuffer("sc_secret_add: [[OUT]] aG", (char*)r_x.data, 32);
+        log_hexbuffer("sc_secret_add: [[OUT]] aG", (char*)r_x.data, 32);       
         #endif
 
         offset = set_command_header_noopt(INS_SECRET_KEY_ADD);
@@ -1411,6 +1412,81 @@ namespace hw {
         return true;
     }
 
+    void device_ledger::get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) {
+      AUTO_LOCK_CMD();
+      
+      int pref_length = 0, pref_offset = 0, offset = 0;
+
+      #ifdef DEBUG_HWDEVICE
+      crypto::hash h_x;
+      this->controle_device->get_transaction_prefix_hash(tx,h_x);
+      MDEBUG("get_transaction_prefix_hash [[IN]] h_x/1 "<<h_x);
+      #endif
+    
+      std::ostringstream s_x;
+      binary_archive<true> a_x(s_x);
+      CHECK_AND_ASSERT_THROW_MES(::serialization::serialize(a_x, const_cast<cryptonote::transaction_prefix&>(tx)),
+                                 "unable to serialize transaction prefix");
+      pref_length = s_x.str().size();
+      //auto pref = std::make_unique<unsigned char[]>(pref_length);
+      auto uprt_pref = std::unique_ptr<unsigned char[]>{ new unsigned char[pref_length] };
+      unsigned char* pref = uprt_pref.get();
+      memmove(pref, s_x.str().data(), pref_length);
+
+      offset = set_command_header_noopt(INS_PREFIX_HASH,1);
+      pref_offset = 0;
+      unsigned char v;
+
+      //version as varint     
+      do {
+        v = pref[pref_offset];
+        this->buffer_send[offset] = v;
+        offset += 1;
+        pref_offset += 1;
+      } while (v&0x80);
+
+      //locktime as var int
+      do {
+        v = pref[pref_offset];
+        this->buffer_send[offset] = v;
+        offset += 1;
+        pref_offset += 1;
+      } while (v&0x80);
+
+      this->buffer_send[4] = offset-5;
+      this->length_send = offset;
+      this->exchange_wait_on_input();
+
+      //hash remains
+      int cnt = 0;
+      while (pref_offset < pref_length) {
+        int len;
+        cnt++;
+        offset = set_command_header(INS_PREFIX_HASH,2,cnt);      
+        len = pref_length - pref_offset;
+        //options
+        if (len > (BUFFER_SEND_SIZE-offset-3)) {
+          len = BUFFER_SEND_SIZE-offset-3;
+          this->buffer_send[offset] = 0x80;
+        } else {
+          this->buffer_send[offset] = 0x00;
+        }
+        offset += 1;
+        //send chunk
+        memmove(&this->buffer_send[offset], pref+pref_offset, len);
+        offset += len;
+        pref_offset += len;
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        this->exchange();
+      }
+      memmove(h.data, &this->buffer_recv[0], 32);
+      
+      #ifdef DEBUG_HWDEVICE
+      hw::ledger::check8("prefix_hash", "h", h_x.data, h.data);
+      #endif
+    }
+
     bool device_ledger::encrypt_payment_id(crypto::hash8 &payment_id, const crypto::public_key &public_key, const crypto::secret_key &secret_key) {
         AUTO_LOCK_CMD();
 
@@ -1448,12 +1524,12 @@ namespace hw {
     }
 
 
-    bool device_ledger::generate_output_ephemeral_keys(const size_t tx_version, bool &found_change, const cryptonote::account_keys &sender_account_keys,
-                                                       const crypto::public_key &txkey_pub, const crypto::secret_key &tx_key,
-                                                       const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr,
-                                                       const size_t output_index, const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
+    bool device_ledger::generate_output_ephemeral_keys(const size_t tx_version, const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
+                                                       const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
+                                                       const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
                                                        std::vector<crypto::public_key> &additional_tx_public_keys,
-                                                       std::vector<rct::key> &amount_keys, crypto::public_key &out_eph_public_key) {
+                                                       std::vector<rct::key> &amount_keys,
+                                                       crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) {
       AUTO_LOCK_CMD();
 
       #ifdef DEBUG_HWDEVICE
@@ -1462,17 +1538,17 @@ namespace hw {
       memmove((void*)sender_account_keys_x.m_view_secret_key.data, dbg_viewkey.data, 32);
 
       const crypto::public_key                 txkey_pub_x                    = txkey_pub;
-      const crypto::secret_key                 tx_key_x                       = tx_key;
+      const crypto::secret_key                 tx_key_x                       = hw::ledger::decrypt(tx_key);
       const cryptonote::tx_destination_entry   dst_entr_x                     = dst_entr;
-      const boost::optional<cryptonote::tx_destination_entry> change_addr_x   = change_addr;
+      const boost::optional<cryptonote::account_public_address> change_addr_x = change_addr;
       const size_t                             output_index_x                 = output_index;
       const bool                               need_additional_txkeys_x       = need_additional_txkeys;
-
+      
       std::vector<crypto::secret_key>    additional_tx_keys_x;
       for (const auto k: additional_tx_keys) {
         additional_tx_keys_x.push_back(hw::ledger::decrypt(k));
       }
-
+      
       std::vector<crypto::public_key>          additional_tx_public_keys_x;
       std::vector<rct::key>                    amount_keys_x;
       crypto::public_key                       out_eph_public_key_x;
@@ -1493,7 +1569,8 @@ namespace hw {
       if(need_additional_txkeys_x) {
         log_hexbuffer("generate_output_ephemeral_keys: [[IN]] additional_tx_keys[oi]", additional_tx_keys_x[output_index].data, 32);
       }
-      this->controle_device->generate_output_ephemeral_keys(tx_version_x, sender_account_keys_x, txkey_pub_x, tx_key_x, dst_entr_x, change_addr_x, output_index_x, need_additional_txkeys_x,  additional_tx_keys_x, additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x);
+      this->controle_device->generate_output_ephemeral_keys(tx_version_x, sender_account_keys_x, txkey_pub_x, tx_key_x, dst_entr_x, change_addr_x, output_index_x, need_additional_txkeys_x,  additional_tx_keys_x,
+                                                            additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x);
       if(need_additional_txkeys_x) {
         log_hexbuffer("additional_tx_public_keys_x: [[OUT]] additional_tx_public_keys_x", additional_tx_public_keys_x.back().data, 32);
       }
@@ -1509,10 +1586,6 @@ namespace hw {
           additional_txkey.sec = additional_tx_keys[output_index];
       }
 
-      bool &is_change = found_change;
-      if (change_addr && dst_entr == *change_addr && !is_change)
-        is_change = true;
-
       int offset = set_command_header_noopt(INS_GEN_TXOUT_KEYS);
       //tx_version
       this->buffer_send[offset+0] = tx_version>>24;
@@ -1521,8 +1594,7 @@ namespace hw {
       this->buffer_send[offset+3] = tx_version>>0;
       offset += 4;
       //tx_key
-      memmove(&this->buffer_send[offset], tx_key.data, 32);
-      offset += 32;
+      this->send_secret((unsigned char*)tx_key.data, offset);
       //txkey_pub
       memmove(&this->buffer_send[offset], txkey_pub.data, 32);
       offset += 32;
@@ -1539,6 +1611,7 @@ namespace hw {
       this->buffer_send[offset+3] = output_index>>0;
       offset += 4;
       //is_change,
+      bool is_change = (change_addr && *change_addr == dst_entr);
       this->buffer_send[offset] = is_change;
       offset++;
       //is_subaddress
@@ -1549,11 +1622,12 @@ namespace hw {
       offset++;
       //additional_tx_key
       if (need_additional_txkeys) {
-        memmove(&this->buffer_send[offset], additional_txkey.sec.data, 32);
+        this->send_secret((unsigned char*)additional_txkey.sec.data, offset);
       } else {
         memset(&this->buffer_send[offset], 0, 32);
+        offset += 32;
       }
-      offset += 32;
+
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
       this->exchange();
@@ -1599,7 +1673,8 @@ namespace hw {
     }
 
     bool  device_ledger::add_output_key_mapping(const crypto::public_key &Aout, const crypto::public_key &Bout, const bool is_subaddress, const bool is_change,
-                                                const bool need_additional, const size_t real_output_index, const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
+                                                const bool need_additional, const size_t real_output_index,
+                                                const rct::key &amount_key,  const crypto::public_key &out_eph_public_key)  {
         key_map.add(ABPkeys(rct::pk2rct(Aout),rct::pk2rct(Bout), is_subaddress, is_change, need_additional, real_output_index, rct::pk2rct(out_eph_public_key), amount_key));
         return true;
     }
@@ -1614,8 +1689,7 @@ namespace hw {
         rct::key mask;
         int offset = set_command_header_noopt(INS_GEN_COMMITMENT_MASK);
         // AKout
-        memmove(this->buffer_send+offset, AKout.bytes, 32);
-        offset += 32;
+        this->send_secret(AKout.bytes, offset);
 
         this->buffer_send[4] = offset-5;
         this->length_send = offset;

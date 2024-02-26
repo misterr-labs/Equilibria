@@ -621,6 +621,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::c
   INSERT_INTO_JSON_OBJECT(dest, ip, info.ip);
   INSERT_INTO_JSON_OBJECT(dest, port, info.port);
   INSERT_INTO_JSON_OBJECT(dest, rpc_port, info.rpc_port);
+  INSERT_INTO_JSON_OBJECT(dest, rpc_credits_per_hash, info.rpc_credits_per_hash);
 
   INSERT_INTO_JSON_OBJECT(dest, peer_id, info.peer_id);
 
@@ -659,6 +660,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& inf
   GET_FROM_JSON_OBJECT(val, info.ip, ip);
   GET_FROM_JSON_OBJECT(val, info.port, port);
   GET_FROM_JSON_OBJECT(val, info.rpc_port, rpc_port);
+  GET_FROM_JSON_OBJECT(val, info.rpc_credits_per_hash, rpc_credits_per_hash);
 
   GET_FROM_JSON_OBJECT(val, info.peer_id, peer_id);
 
@@ -677,6 +679,27 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::connection_info& inf
 
   GET_FROM_JSON_OBJECT(val, info.avg_upload, avg_upload);
   GET_FROM_JSON_OBJECT(val, info.current_upload, current_upload);
+}
+
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::tx_blob_entry& tx)
+{
+  dest.StartObject();
+
+  INSERT_INTO_JSON_OBJECT(dest, blob, tx.blob);
+  INSERT_INTO_JSON_OBJECT(dest, prunable_hash, tx.prunable_hash);
+
+  dest.EndObject();
+}
+
+void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_blob_entry& tx)
+{
+  if (!val.IsObject())
+  {
+    throw WRONG_TYPE("json object");
+  }
+
+  GET_FROM_JSON_OBJECT(val, tx.blob, blob);
+  GET_FROM_JSON_OBJECT(val, tx.prunable_hash, prunable_hash);
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::block_complete_entry& blk)
@@ -799,6 +822,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::r
   INSERT_INTO_JSON_OBJECT(dest, ip, peer.ip);
   INSERT_INTO_JSON_OBJECT(dest, port, peer.port);
   INSERT_INTO_JSON_OBJECT(dest, rpc_port, peer.rpc_port);
+  INSERT_INTO_JSON_OBJECT(dest, rpc_credits_per_hash, peer.rpc_credits_per_hash);
   INSERT_INTO_JSON_OBJECT(dest, last_seen, peer.last_seen);
   INSERT_INTO_JSON_OBJECT(dest, pruning_seed, peer.pruning_seed);
 
@@ -817,6 +841,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::peer& peer)
   GET_FROM_JSON_OBJECT(val, peer.ip, ip);
   GET_FROM_JSON_OBJECT(val, peer.port, port);
   GET_FROM_JSON_OBJECT(val, peer.rpc_port, rpc_port);
+  GET_FROM_JSON_OBJECT(val, peer.rpc_credits_per_hash, rpc_credits_per_hash);
   GET_FROM_JSON_OBJECT(val, peer.last_seen, last_seen);
   GET_FROM_JSON_OBJECT(val, peer.pruning_seed, pruning_seed);
 }

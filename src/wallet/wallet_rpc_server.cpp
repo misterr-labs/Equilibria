@@ -361,7 +361,7 @@ namespace tools
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = d.original.empty() ? d.address(m_wallet->nettype(), pd.m_payment_id) : d.original;
+      td.address = d.address(m_wallet->nettype(), pd.m_payment_id);
     }
 
     entry.type = "out";
@@ -388,12 +388,11 @@ namespace tools
     entry.locked = true;
     entry.note = m_wallet->get_tx_note(txid);
 
-    for (const auto &d: pd.m_dests)
-    {
+    for (const auto &d: pd.m_dests) {
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = d.original.empty() ? d.address(m_wallet->nettype(), pd.m_payment_id) : d.original;
+      td.address = d.address(m_wallet->nettype(), pd.m_payment_id);
     }
 
     entry.type = is_failed ? "failed" : "pending";
@@ -1179,11 +1178,11 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     if (m_restricted)
-    {
+      {
       er.code = WALLET_RPC_ERROR_CODE_DENIED;
       er.message = "Register Service Node command is unavailable in restricted mode.";
-      return false;
-    }
+        return false;
+      }
 
     std::vector<std::string> args;
     boost::split(args, req.register_service_node_str, boost::is_any_of(" "));
@@ -1192,7 +1191,7 @@ namespace tools
     {
       if (args[0] == "register_service_node")
         args.erase(args.begin());
-    }
+  }
 
     tools::wallet2::register_service_node_result register_result = m_wallet->create_register_service_node_tx(args, 0);
     if (register_result.status != tools::wallet2::register_service_node_result_status::success)
@@ -1205,7 +1204,7 @@ namespace tools
     std::vector<tools::wallet2::pending_tx> ptx_vector = {register_result.ptx};
     return fill_response(ptx_vector, req.get_tx_key, res.tx_key, res.amount, res.fee, res.weight, res.multisig_txset, res.unsigned_txset, req.do_not_relay, res.tx_hash, req.get_tx_hex, res.tx_blob, req.get_tx_metadata, res.tx_metadata, er);
   }
-  //------------------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_swap(const wallet_rpc::COMMAND_RPC_SWAP::request& req, wallet_rpc::COMMAND_RPC_SWAP::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     std::vector<cryptonote::tx_destination_entry> dsts;
@@ -1660,12 +1659,22 @@ namespace tools
       return  false;
     }
 
+    std::set<uint32_t> subaddr_indices;
+    if (req.subaddr_indices_all)
+    {
+      for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(req.account_index); ++i)
+        subaddr_indices.insert(i);
+    }
+    else
+    {
+      subaddr_indices= req.subaddr_indices;
+    }
+
     try
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, req.unlock_time, priority, extra, req.account_index, subaddr_indices);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.fee_list, res.weight_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
           res.tx_hash_list, req.get_tx_hex, res.tx_blob_list, req.get_tx_metadata, res.tx_metadata_list, er);
@@ -3238,7 +3247,7 @@ namespace tools
       return false;
     }
 
-    cryptonote::COMMAND_RPC_START_MINING::request daemon_req{};
+    cryptonote::COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req);
     daemon_req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     daemon_req.threads_count        = req.threads_count;
     daemon_req.do_background_mining = req.do_background_mining;
@@ -4505,7 +4514,7 @@ namespace tools
     try
     {
       size_t extra_size = 34 /* pubkey */ + 10 /* encrypted payment id */; // typical makeup
-      const std::pair<size_t, uint64_t> sw = m_wallet->estimate_tx_size_and_weight(req.n_inputs, req.ring_size, req.n_outputs, extra_size);
+      const std::pair<size_t, uint64_t> sw = m_wallet->estimate_tx_size_and_weight(req.rct, req.n_inputs, req.ring_size, req.n_outputs, extra_size);
       res.size = sw.first;
       res.weight = sw.second;
     }
@@ -4556,6 +4565,7 @@ public:
 
       const auto arg_wallet_file = wallet_args::arg_wallet_file();
       const auto arg_from_json = wallet_args::arg_generate_from_json();
+      const auto arg_rpc_client_secret_key = wallet_args::arg_rpc_client_secret_key();
 
       const auto wallet_file = command_line::get_arg(vm, arg_wallet_file);
       const auto from_json = command_line::get_arg(vm, arg_from_json);
@@ -4602,6 +4612,17 @@ public:
       if (!wal)
       {
         return false;
+      }
+
+      if (!command_line::is_arg_defaulted(vm, arg_rpc_client_secret_key))
+      {
+        crypto::secret_key client_secret_key;
+        if (!epee::string_tools::hex_to_pod(command_line::get_arg(vm, arg_rpc_client_secret_key), client_secret_key))
+        {
+          MERROR(arg_rpc_client_secret_key.name << ": RPC client secret key should be 32 byte in hex format");
+          return false;
+        }
+        wal->set_rpc_client_secret_key(client_secret_key);
       }
 
       bool quit = false;
@@ -4702,6 +4723,7 @@ int main(int argc, char** argv) {
 
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const auto arg_from_json = wallet_args::arg_generate_from_json();
+  const auto arg_rpc_client_secret_key = wallet_args::arg_rpc_client_secret_key();
 
   po::options_description hidden_options("Hidden");
 
@@ -4715,6 +4737,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_from_json);
   command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_prompt_for_password);
+  command_line::add_arg(desc_params, arg_rpc_client_secret_key);
 
   daemonizer::init_options(hidden_options, desc_params);
   desc_params.add(hidden_options);

@@ -84,7 +84,7 @@ inline void throw1(const T &e)
   throw e;
 }
 
-#define MDB_val_set(var, val) MDB_val var = {sizeof(val), (void *)&val}
+#define MDB_val_set(var, val)   MDB_val var = {sizeof(val), (void *)&val}
 
 #define MDB_val_sized(var, val) MDB_val var = {val.size(), (void *)val.data()}
 
@@ -5680,7 +5680,7 @@ bool BlockchainLMDB::get_service_node_data(std::string& data)
 	MDB_val_set(k, key);
 	MDB_val v;
 
-  int result;
+	int result;
 	result = mdb_cursor_get(m_cur_service_node_data, &k, &v, MDB_FIRST);
 
 	if (result == MDB_NOTFOUND)

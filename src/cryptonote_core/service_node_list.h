@@ -89,10 +89,13 @@ namespace service_nodes
 			END_SERIALIZE()
 		};
 
-		uint8_t version = service_node_info::version_0;
+		uint8_t  version = service_node_info::version_0;
 		uint64_t registration_height;
+
+		// block_height and transaction_index are to record when the service node last received a reward.
 		uint64_t last_reward_block_height;
 		uint32_t last_reward_transaction_index;
+
 		std::vector<contribution> contributors;
 		uint64_t total_contributed;
 		uint64_t total_reserved;
@@ -120,16 +123,16 @@ namespace service_nodes
 			VARINT_FIELD(portions_for_operator)
 			if (version >= service_node_info::version_1_swarms)
 			{
-			  VARINT_FIELD(swarm_id)
+				VARINT_FIELD(swarm_id)
 			}
-			FIELD(operator_address)
+		    FIELD(operator_address)
 		END_SERIALIZE()
 	};
 
 	struct service_node_pubkey_info
 	{
 		crypto::public_key pubkey;
-		service_node_info info;
+		service_node_info  info;
 	};
 
 	template<typename T>
@@ -146,7 +149,8 @@ namespace service_nodes
     }
   }
 
-  using block_height = uint64_t;
+	static constexpr uint64_t QUEUE_SWARM_ID = 0;
+
 	class service_node_list
 		: public cryptonote::BlockAddedHook,
   		public cryptonote::BlockchainDetachedHook,
@@ -211,7 +215,7 @@ namespace service_nodes
 				FIELDS(*static_cast<rollback_event *>(this))
 				FIELD(m_key)
 				FIELD(m_info)
-			END_SERIALIZE()
+				END_SERIALIZE()
 		};
 
 		struct rollback_new : public rollback_event
@@ -224,7 +228,7 @@ namespace service_nodes
 			BEGIN_SERIALIZE()
 				FIELDS(*static_cast<rollback_event *>(this))
 				FIELD(m_key)
-			END_SERIALIZE()
+				END_SERIALIZE()
 		};
 
 		struct prevent_rollback : public rollback_event
@@ -235,19 +239,19 @@ namespace service_nodes
 
 			BEGIN_SERIALIZE()
 				FIELDS(*static_cast<rollback_event *>(this))
-			END_SERIALIZE()
+				END_SERIALIZE()
 		};
 
 		typedef boost::variant<rollback_change, rollback_new, prevent_rollback> rollback_event_variant;
 
 		struct node_info_for_serialization
 		{
-		  crypto::public_key key;
-		  service_node_info info;
-		  BEGIN_SERIALIZE()
-		    FIELD(key)
-		    FIELD(info)
-		  END_SERIALIZE()
+			crypto::public_key key;
+			service_node_info info;
+			BEGIN_SERIALIZE()
+				FIELD(key)
+				FIELD(info)
+				END_SERIALIZE()
 		};
 
 		struct quorum_state_for_serialization
@@ -314,12 +318,14 @@ namespace service_nodes
 		void clear(bool delete_db_entry = false);
 		bool load();
 
+		using block_height = uint64_t;
+
 		std::unordered_map<crypto::public_key, service_node_info> m_service_nodes_infos;
 		std::list<std::unique_ptr<rollback_event>> m_rollback_events;
 		cryptonote::Blockchain& m_blockchain;
 		block_height m_height;
 
-		mutable boost::recursive_mutex m_sn_mutex;
+    mutable boost::recursive_mutex m_sn_mutex;
 
 		crypto::public_key const *m_service_node_pubkey;
 		cryptonote::BlockchainDB* m_db;
@@ -329,7 +335,7 @@ namespace service_nodes
 		std::vector<contract> m_contracts;
 	};
 
-  uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
+	uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
 	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
   bool convert_registration_args(cryptonote::network_type nettype,
@@ -342,7 +348,7 @@ namespace service_nodes
 	bool make_registration_cmd(cryptonote::network_type nettype,
 	                           const std::vector<std::string> args,
 	                           const crypto::public_key& service_node_pubkey,
-	                           const crypto::secret_key &service_node_key,
+	                           const crypto::secret_key service_node_key,
 	                           std::string &cmd,
 	                           bool make_friendly,
 	                           boost::optional<std::string&> err_msg);

@@ -69,12 +69,12 @@ namespace cryptonote
     bool m_invalid_version;
     bool m_invalid_type;
 
-	  vote_verification_context m_vote_ctx;
+	vote_verification_context m_vote_ctx;
   };
 
 	struct block_verification_context
 	{
-	  bool m_added_to_main_chain;
+		 bool m_added_to_main_chain;
 		bool m_verification_failed; //bad block, should drop connection
 		bool m_marked_as_orphaned;
 		bool m_already_exists;

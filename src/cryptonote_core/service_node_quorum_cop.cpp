@@ -191,16 +191,11 @@ namespace service_nodes
 		return true;
 	}
 
-	void quorum_cop::generate_uptime_proof_request(cryptonote::NOTIFY_UPTIME_PROOF::request& req) const
+	void generate_uptime_proof_request(const crypto::public_key& pubkey, const crypto::secret_key& seckey, cryptonote::NOTIFY_UPTIME_PROOF::request& req)
 	{
 		req.snode_version_major = static_cast<uint16_t>(XEQ_VERSION_MAJOR);
 		req.snode_version_minor = static_cast<uint16_t>(XEQ_VERSION_MINOR);
 		req.snode_version_patch = static_cast<uint16_t>(XEQ_VERSION_PATCH);
-
-		crypto::public_key pubkey;
-		crypto::secret_key seckey;
-		m_core.get_service_node_keys(pubkey, seckey);
-
 		req.timestamp = time(nullptr);
 		req.pubkey = pubkey;
 
@@ -211,7 +206,11 @@ namespace service_nodes
 	bool quorum_cop::prune_uptime_proof()
 	{
 		uint64_t now = time(nullptr);
-		const uint64_t prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS;
+		uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
+		uint64_t prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS;
+		if(m_core.get_hard_fork_version(latest_height) >= 10)
+			prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS_V2;
+
 		CRITICAL_REGION_LOCAL(m_lock);
 
 		for (auto it = m_uptime_proof_seen.begin(); it != m_uptime_proof_seen.end();)
